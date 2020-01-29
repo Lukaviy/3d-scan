@@ -135,9 +135,9 @@ public class UDP : MonoBehaviour
 
     private CamData parseCamBufferData(CamBufferData d)
     {
-        var pos = new Vector3((float) d.tx, (float) d.ty, (float) d.tz);
-        var rot = Quaternion.Inverse(VectorToQuaternion(new Vector3((float)d.rx, (float)d.ry, (float)d.rz)));
-        return new CamData { position = rot * pos, rotation = rot };
+        var pos = new Vector3(-(float) d.tx, (float) d.ty, (float) d.tz);
+        var rot = VectorToQuaternion(new Vector3((float)d.rx, (float)d.ry, (float)d.rz));
+        return new CamData { position = pos, rotation = rot };
     }
 
     private void ThreadMethod()
@@ -160,6 +160,8 @@ public class UDP : MonoBehaviour
 
                 _camData[0] = parseCamBufferData(d.cam1);
                 _camData[1] = parseCamBufferData(d.cam2);
+
+                Debug.Log($"{ _camData[0].position.x }, { _camData[0].position.y }, { _camData[0].position.z }");
 
                 dataProceeded = true;
             }

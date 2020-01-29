@@ -20,6 +20,6 @@ public class CameraPoseSetter : MonoBehaviour
     void OnDrawGizmos()
     {
         Gizmos.color = Color.red;
-        Gizmos.DrawRay(transform.position, -transform.TransformDirection(Vector3.forward) * 50);
+        Gizmos.DrawRay(transform.position, transform.TransformDirection(Vector3.forward) * 50);
     }
 }

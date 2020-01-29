@@ -33,11 +33,16 @@ imgpoints = [] # 2d points in image plane.
 
 axis = np.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
 
-def draw(img, corners, imgpts):
+def drawAxes(img, corners, imgpts):
     corner = tuple(corners[0].ravel())
-    img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (255, 0, 0), 5)
+    img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (0, 0, 255), 5)
     img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0, 255, 0), 5)
-    img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0, 0, 255), 5)
+    img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (255, 0, 0), 5)
+    return img
+
+def drawCircles(img, corners, imgpts):
+    for corner in corners:
+        img = cv2.circle(img, tuple(corner.ravel()), 5, (0, 255, 0), 2)
     return img
 
 cam1 = cv2.VideoCapture(0)
@@ -48,57 +53,6 @@ with np.load('cam1calib.npz') as X:
 
 with np.load('cam2calib.npz') as X:
     mtx2, dist2, newcameramtx2, roi2 = [X[i] for i in ('mtx', 'dist', 'newcameramtx', 'roi')]
-
-mp.use('Qt5Agg')
-
-p.ion()
-fig = p.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-p.show()
-
-# class Thread(QThread):
-#     changePixmap = pyqtSignal(QImage)
-#
-#     def run(self):
-#         cap = cv2.VideoCapture(0)
-#         while True:
-#             ret, frame = cap.read()
-#             if ret:
-#                 rgbImage = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#                 h, w, ch = rgbImage.shape
-#                 bytesPerLine = ch * w
-#                 convertToQtFormat = QtGui.QImage(rgbImage.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
-#                 p = convertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
-#                 self.changePixmap.emit(p)
-#
-# class App(QWidget):
-#     def __init__(self):
-#         super().__init__()
-#         self.initUI()
-#
-#     @pyqtSlot(QImage)
-#     def setImage(self, image):
-#         self.label.setPixmap(QPixmap.fromImage(image))
-#
-#     def initUI(self):
-#         self.setWindowTitle(self.title)
-#         self.setGeometry(self.left, self.top, self.width, self.height)
-#         self.resize(1800, 1200)
-#         # create a label
-#         self.label = QLabel(self)
-#         self.label.move(280, 120)
-#         self.label.resize(640, 480)
-#         th = Thread(self)
-#         th.changePixmap.connect(self.setImage)
-#         th.start()
-#
-# if __name__ == '__main__':
-#     app = QApplication(sys.argv)
-#     ex = App()
-#     sys.exit(app.exec_())
-
-pl = None
 
 while True:
     ret, frame1 = cam1.read()
@@ -115,38 +69,59 @@ while True:
     dst2 = cv2.undistort(frame2, mtx2, dist2, None, newcameramtx2)
     gray2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
 
-    cv2.imshow('undistorted1', dst1)
-    cv2.imshow('undistorted2', dst2)
-
     ret1, corners1 = cv2.findChessboardCorners(gray1, (9, 6), None)
     ret2, corners2 = cv2.findChessboardCorners(gray2, (9, 6), None)
     # If found, add object points, image points (after refining them)
-    if ret1 and ret2:
+
+    if ret1:
         corners2_1 = cv2.cornerSubPix(gray1, corners1, (11, 11), (-1, -1), criteria)
-        ret1, rvecs1, tvecs1, inliers1 = cv2.solvePnPRansac(objp, corners2_1, mtx1, dist1)
+        ret1, rvecs1, tvecs1, inliers1 = cv2.solvePnPRansac(objp, corners2_1, newcameramtx1, dist1)
 
+    if ret2:
         corners2_2 = cv2.cornerSubPix(gray2, corners2, (11, 11), (-1, -1), criteria)
-        ret2, rvecs2, tvecs2, inliers2 = cv2.solvePnPRansac(objp, corners2_2, mtx2, dist2)
+        ret2, rvecs2, tvecs2, inliers2 = cv2.solvePnPRansac(objp, corners2_2, newcameramtx2, dist2)
 
-        if ret1 and ret2:
-            rotMatrix1, _ = cv2.Rodrigues(rvecs1)
-            rotMatrix2, _ = cv2.Rodrigues(rvecs2)
+    img1 = None
+    img2 = None
 
-            imgpts1, _ = cv2.projectPoints(axis, rvecs1, tvecs1, mtx1, dist1)
-            imgpts2, _ = cv2.projectPoints(axis, rvecs2, tvecs2, mtx2, dist2)
+    msg1 = None
+    msg2 = None
 
-            img1 = draw(dst1, corners2_1, imgpts1)
-            img2 = draw(dst2, corners2_2, imgpts2)
 
-            cv2.imshow('img1', img1)
-            cv2.imshow('img2', img2)
 
-            msg1 = np.array([rotMatrix1, np.transpose(tvecs1)]).tobytes('C')
-            msg2 = np.array([rotMatrix2, np.transpose(tvecs2)]).tobytes('C')
+    if ret1:
+        imgpts1, _ = cv2.projectPoints(axis, rvecs1, tvecs1, mtx1, dist1)
+        drawCircles(dst1, corners2_1, imgpts1)
+        img1 = drawAxes(dst1, corners2_1, imgpts1)
+        cv2.line(img1, (310, 240), (330, 240), (0, 0, 255), 2)
+        cv2.line(img1, (320, 230), (320, 250), (0, 0, 255), 2)
+        msg1 = np.array([np.transpose(rvecs1), np.transpose(tvecs1)])
 
-            sock.sendto(np.array([np.transpose(rvecs1), np.transpose(tvecs1), np.transpose(rvecs2), np.transpose(tvecs2)], dtype=float).tostring(), (UDP_IP, UDP_PORT))
+    if ret2:
+        imgpts2, _ = cv2.projectPoints(axis, rvecs2, tvecs2, mtx2, dist2)
+        drawCircles(dst2, corners2_2, imgpts2)
+        img2 = drawAxes(dst2, corners2_2, imgpts2)
+        cv2.line(img2, (310, 240), (330, 240), (0, 0, 255), 2)
+        cv2.line(img2, (320, 230), (320, 250), (0, 0, 255), 2)
+        msg2 = np.array([np.transpose(rvecs2), np.transpose(tvecs2)])
 
-            p.draw()
+    if img1 is None:
+        img1 = dst1
+
+    if img2 is None:
+        img2 = dst2
+
+    if msg1 is None:
+        msg1 = np.array([[[0,0,0]],[[0,0,0]]])
+
+    if msg2 is None:
+        msg2 = np.array([[[0,0,0]],[[0,0,0]]])
+
+    cv2.imshow('img', np.concatenate((img1, img2), axis=1))
+
+    msg = np.array([msg1, msg2]).ravel()
+
+    sock.sendto(np.array(msg, dtype=float).tostring(), (UDP_IP, UDP_PORT))
 
     k = cv2.waitKey(1)
 
