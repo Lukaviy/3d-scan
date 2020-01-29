@@ -29,6 +29,8 @@ def draw(img, corners, imgpts):
     img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0, 0, 255), 5)
     return img
 
+cam1 = cv2.VideoCapture(0)
+cam2 = cv2.VideoCapture(1)
 
 def findBrightnessPoint(img):
     best_x = 0
@@ -48,7 +50,10 @@ def findBrightnessPoint(img):
 cam = cv2.VideoCapture(0)
 
 with np.load('cam1calib.npz') as X:
-    mtx, dist, newcameramtx, roi = [X[i] for i in ('mtx', 'dist', 'newcameramtx', 'roi')]
+    mtx1, dist1, newcameramtx1, roi1 = [X[i] for i in ('mtx', 'dist', 'newcameramtx', 'roi')]
+
+with np.load('cam2calib.npz') as X:
+    mtx2, dist2, newcameramtx2, roi2 = [X[i] for i in ('mtx', 'dist', 'newcameramtx', 'roi')]
 
 mp.use('Qt5Agg')
 
@@ -61,51 +66,56 @@ p.show()
 pl = None
 
 while True:
-    ret, frame = cam.read()
+    ret, frame1 = cam1.read()
     if not ret:
         exit(1)
 
-    dst = cv2.undistort(frame, mtx, dist, None, newcameramtx)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    ret, frame2 = cam2.read()
+    if not ret:
+        exit(1)
 
-    cv2.imshow('undistorted', dst)
+    dst1 = cv2.undistort(frame1, mtx1, dist1, None, newcameramtx1)
+    gray1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+
+    dst2 = cv2.undistort(frame2, mtx2, dist2, None, newcameramtx2)
+    gray2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+
+    cv2.imshow('undistorted1', dst1)
+    cv2.imshow('undistorted2', dst2)
+
+    ret1, corners1 = cv2.findChessboardCorners(gray1, (9, 6), None)
+    ret2, corners2 = cv2.findChessboardCorners(gray2, (9, 6), None)
 
     point = findBrightnessPoint(frame)
     frameWithBrightnessPoint = frame
     cv2.rectangle(frameWithBrightnessPoint, (point[0] - 5, point[1] - 5), (point[0] + 5, point[1] + 5), (255, 0, 0), 1)
     cv2.imshow('brightness', frameWithBrightnessPoint)
 
-    ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
     # If found, add object points, image points (after refining them)
-    if ret:
-        corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        ret, rvecs, tvecs, inliers = cv2.solvePnPRansac(objp, corners2, mtx, dist)
+    if ret1 and ret2:
+        corners2_1 = cv2.cornerSubPix(gray1, corners1, (11, 11), (-1, -1), criteria)
+        ret1, rvecs1, tvecs1, inliers1 = cv2.solvePnPRansac(objp, corners2_1, mtx1, dist1)
 
-        if ret:
-            rotMatrix, jac = cv2.Rodrigues(rvecs)
+        corners2_2 = cv2.cornerSubPix(gray2, corners2, (11, 11), (-1, -1), criteria)
+        ret2, rvecs2, tvecs2, inliers2 = cv2.solvePnPRansac(objp, corners2_2, mtx2, dist2)
 
-            # camVec = np.array([[0, 0, 0], [0, 0, -10]])
-            # camVec = np.add(camVec, np.transpose(tvecs))
-            # camVec = np.dot(camVec, rotMatrix)
-            # rotx90 = R.from_euler('x', 90, degrees=True).as_matrix()
-            # roty90 = R.from_euler('y', 90, degrees=True).as_matrix()
-            # rotz90 = R.from_euler('z', 90, degrees=True).as_matrix()
-            # camVec = np.dot(camVec, rotx90)
-            # camVec = np.dot(camVec, roty90)
-            # camVec = np.dot(camVec, rotz90)
+        if ret1 and ret2:
+            rotMatrix1, _ = cv2.Rodrigues(rvecs1)
+            rotMatrix2, _ = cv2.Rodrigues(rvecs2)
 
-            # points = np.append(np.array([[0, 0, 0]]), camVec, 0)
-            # points = np.hsplit(points, 3)
-            #
-            imgpts, _ = cv2.projectPoints(axis, rvecs, tvecs, mtx, dist)
+            imgpts1, _ = cv2.projectPoints(axis, rvecs1, tvecs1, mtx1, dist1)
+            imgpts2, _ = cv2.projectPoints(axis, rvecs2, tvecs2, mtx2, dist2)
 
-            img = draw(dst, corners2, imgpts)
+            img1 = draw(dst1, corners2_1, imgpts1)
+            img2 = draw(dst2, corners2_2, imgpts2)
 
-            cv2.imshow('img', img)
+            cv2.imshow('img1', img1)
+            cv2.imshow('img2', img2)
 
-            msg = np.array([rotMatrix, np.transpose(tvecs)]).tobytes('C')
+            msg1 = np.array([rotMatrix1, np.transpose(tvecs1)]).tobytes('C')
+            msg2 = np.array([rotMatrix2, np.transpose(tvecs2)]).tobytes('C')
 
-            sock.sendto(np.array([np.transpose(rvecs), np.transpose(tvecs)], dtype=float).tostring(), (UDP_IP, UDP_PORT))
+            sock.sendto(np.array([np.transpose(rvecs1), np.transpose(tvecs1), np.transpose(rvecs2), np.transpose(tvecs2)], dtype=float).tostring(), (UDP_IP, UDP_PORT))
 
             p.draw()
 

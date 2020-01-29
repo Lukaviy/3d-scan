@@ -10,7 +10,7 @@ using System.Threading;
 using UnityEngine;
 using UnityEngine.UI;
 
-struct Data
+struct CamBufferData
 {
     public double rx;
     public double ry;
@@ -21,21 +21,34 @@ struct Data
     public double tz;
 }
 
+struct Data
+{
+    public CamBufferData cam1;
+    public CamBufferData cam2;
+}
+
+public struct CamData
+{
+    public Vector3 position;
+    public Quaternion rotation;
+}
+
 public class UDP : MonoBehaviour
 {
     static UdpClient udp;
     Thread thread;
 
     static readonly object lockObject = new object();
-    bool processData = false;
 
-    private Vector3 position;
-    private Quaternion rotation;
+    public CamData[] CamData;
+    private CamData[] _camData;
 
     public Text IPAddressText;
     public Text ReadedMessagesText;
 
     private int readedMessages = 0;
+
+    private bool dataProceeded = false;
 
     private ND _nd;
 
@@ -45,6 +58,9 @@ public class UDP : MonoBehaviour
         thread.Start();
 
         IPAddressText.text = string.Join("\n", IPManager.GetIP(ADDRESSFAM.IPv4).Select(x => x.ToString()));
+
+        CamData = new CamData[2];
+        _camData = new CamData[2];
 
         /* _nd = gameObject.AddComponent<ND>();
  
@@ -95,21 +111,33 @@ public class UDP : MonoBehaviour
 
     void Update()
     {
-        if (lockObject != null && processData)
+        if (lockObject != null && dataProceeded)
         {
-            transform.SetParent(Camera.main.transform);
-            transform.localPosition = position;
-            transform.localRotation = rotation;
-            transform.SetParent(null);
+            for (var i = 0; i < _camData.Length; i++)
+            {
+                CamData[i] = _camData[i];
+            }
+            //transform.SetParent(Camera.main.transform);
+            //transform.localPosition = position;
+            //transform.localRotation = rotation;
+            //transform.SetParent(null);
             //transform.SetPositionAndRotation(position, rotation);
-            processData = false;
 
             readedMessages++;
 
             ReadedMessagesText.text = readedMessages.ToString();
 
+            dataProceeded = false;
+
             //Debug.Log("Received");
         }
+    }
+
+    private CamData parseCamBufferData(CamBufferData d)
+    {
+        var pos = new Vector3((float) d.tx, (float) d.ty, (float) d.tz);
+        var rot = Quaternion.Inverse(VectorToQuaternion(new Vector3((float)d.rx, (float)d.ry, (float)d.rz)));
+        return new CamData { position = rot * pos, rotation = rot };
     }
 
     private void ThreadMethod()
@@ -130,14 +158,10 @@ public class UDP : MonoBehaviour
             {
                 var d = fromBytes(receiveBytes);
 
-                var pos = new Vector3((float) d.tx, (float) d.ty, (float) d.tz);
-                var rot = Quaternion.Inverse(VectorToQuaternion(new Vector3((float)d.rx, (float)d.ry, (float)d.rz)));
+                _camData[0] = parseCamBufferData(d.cam1);
+                _camData[1] = parseCamBufferData(d.cam2);
 
-                rotation = rot;
-
-                position = rot * pos;
-
-                processData = true;
+                dataProceeded = true;
             }
         }
     }
