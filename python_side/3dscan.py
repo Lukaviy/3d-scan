@@ -1,21 +1,9 @@
-import sys
-
 import numpy as np
-import scipy as sp
 import cv2
 import matplotlib as mp
 import pylab as p
-import PyQt5
-from PyQt5 import Qt
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import QLabel, QApplication, QWidget
-from PyQt5.uic.properties import QtGui
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.spatial.transform import Rotation as R
 import socket
-from pickle import dumps
-import glob
+
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 7325
@@ -42,28 +30,19 @@ def draw(img, corners, imgpts):
     return img
 
 
-def pomoika(img):
-    mask = cv2.inRange(cv2.cvtColor(img, cv2.COLOR_BGR2HSV), np.array([0, 50, 50]), np.array([10, 255, 255]))
-    return cv2.bitwise_and(img, img, mask=mask)
-
-
-def detectCircles(img):
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray_blurred = cv2.blur(gray, (3, 3))
-    cv2.imshow('q', gray_blurred)
-    # TODO
-    detected_circles = cv2.HoughCircles(gray_blurred, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=30, minRadius=10, maxRadius=100)
-    print(detected_circles)
-    return detected_circles
-
-
-def drawDetectedCircles(img, detected_circles):
-    if detected_circles is not None:
-        for circle in detected_circles:
-            x = int(circle[0][0])
-            y = int(circle[0][1])
-            r = int(circle[0][2])
-            cv2.rectangle(img, (x - r - 5, y - r - 5), (x + r + 5, y + r + 5), (255, 0, 0), 2)
+def findBrightnessPoint(img):
+    best_x = 0
+    best_y = 0
+    best_brightness = -1
+    for i in range(len(img)):
+        for j in range(len(img[i])):
+            if i % 2 == 0 and j % 2 == 0:
+                brightness = img[i][j][0] + img[i][j][1] + img[i][j][2]
+                if brightness > best_brightness:
+                    best_brightness = brightness
+                    best_x = j
+                    best_y = i
+    return best_x, best_y
 
 
 cam = cv2.VideoCapture(0)
@@ -79,47 +58,6 @@ ax = fig.add_subplot(111, projection='3d')
 
 p.show()
 
-# class Thread(QThread):
-#     changePixmap = pyqtSignal(QImage)
-#
-#     def run(self):
-#         cap = cv2.VideoCapture(0)
-#         while True:
-#             ret, frame = cap.read()
-#             if ret:
-#                 rgbImage = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#                 h, w, ch = rgbImage.shape
-#                 bytesPerLine = ch * w
-#                 convertToQtFormat = QtGui.QImage(rgbImage.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
-#                 p = convertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
-#                 self.changePixmap.emit(p)
-#
-# class App(QWidget):
-#     def __init__(self):
-#         super().__init__()
-#         self.initUI()
-#
-#     @pyqtSlot(QImage)
-#     def setImage(self, image):
-#         self.label.setPixmap(QPixmap.fromImage(image))
-#
-#     def initUI(self):
-#         self.setWindowTitle(self.title)
-#         self.setGeometry(self.left, self.top, self.width, self.height)
-#         self.resize(1800, 1200)
-#         # create a label
-#         self.label = QLabel(self)
-#         self.label.move(280, 120)
-#         self.label.resize(640, 480)
-#         th = Thread(self)
-#         th.changePixmap.connect(self.setImage)
-#         th.start()
-#
-# if __name__ == '__main__':
-#     app = QApplication(sys.argv)
-#     ex = App()
-#     sys.exit(app.exec_())
-
 pl = None
 
 while True:
@@ -132,10 +70,10 @@ while True:
 
     cv2.imshow('undistorted', dst)
 
-    circlesFrame = pomoika(frame)
-    circles = detectCircles(circlesFrame)
-    drawDetectedCircles(circlesFrame, circles)
-    cv2.imshow('RedDotWindow', circlesFrame)
+    point = findBrightnessPoint(frame)
+    frameWithBrightnessPoint = frame
+    cv2.rectangle(frameWithBrightnessPoint, (point[0] - 5, point[1] - 5), (point[0] + 5, point[1] + 5), (255, 0, 0), 1)
+    cv2.imshow('brightness', frameWithBrightnessPoint)
 
     ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
     # If found, add object points, image points (after refining them)
