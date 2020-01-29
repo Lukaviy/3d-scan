@@ -3,7 +3,7 @@ import cv2
 import matplotlib as mp
 import pylab as p
 import socket
-
+from mpl_toolkits.mplot3d import Axes3D
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 7325
@@ -39,7 +39,7 @@ def findBrightnessPoint(img):
     for i in range(len(img)):
         for j in range(len(img[i])):
             if i % 2 == 0 and j % 2 == 0:
-                brightness = img[i][j][0] + img[i][j][1] + img[i][j][2]
+                brightness = int(img[i][j][0]) + int(img[i][j][1]) + int(img[i][j][2])
                 if brightness > best_brightness:
                     best_brightness = brightness
                     best_x = j
@@ -86,10 +86,15 @@ while True:
     ret1, corners1 = cv2.findChessboardCorners(gray1, (9, 6), None)
     ret2, corners2 = cv2.findChessboardCorners(gray2, (9, 6), None)
 
-    point = findBrightnessPoint(frame)
-    frameWithBrightnessPoint = frame
+    point = findBrightnessPoint(frame1)
+    frameWithBrightnessPoint = frame1
     cv2.rectangle(frameWithBrightnessPoint, (point[0] - 5, point[1] - 5), (point[0] + 5, point[1] + 5), (255, 0, 0), 1)
-    cv2.imshow('brightness', frameWithBrightnessPoint)
+    cv2.imshow('brightness1', frameWithBrightnessPoint)
+
+    point = findBrightnessPoint(frame2)
+    frameWithBrightnessPoint = frame2
+    cv2.rectangle(frameWithBrightnessPoint, (point[0] - 5, point[1] - 5), (point[0] + 5, point[1] + 5), (255, 0, 0), 1)
+    cv2.imshow('brightness2', frameWithBrightnessPoint)
 
     # If found, add object points, image points (after refining them)
     if ret1 and ret2:
