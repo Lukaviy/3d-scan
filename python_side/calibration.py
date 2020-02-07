@@ -10,7 +10,9 @@ objp[:, :2] = np.mgrid[0:9, 0:6].T.reshape(-1, 2)
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-cam = cv2.VideoCapture(1)
+cam_id = 1
+
+cam = cv2.VideoCapture(cam_id)
 
 frame = None
 count = 0
@@ -27,7 +29,7 @@ while True:
     if ret:
         corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
 
-        f = cv2.waitKey(500)
+        f = cv2.waitKey(1)
         if f == ord('f'):
             objpoints.append(objp)
             imgpoints.append(corners)
@@ -38,8 +40,7 @@ while True:
         cv2.drawChessboardCorners(frame, (9, 6), corners2, ret)
         cv2.imshow('img', frame)
 
-    k = cv2.waitKey(500)
-
+    k = cv2.waitKey(1)
     if k%256 == 32:
         # ESC pressed
         print("Space hit, closing...")
@@ -48,6 +49,6 @@ while True:
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (640, 480), None, None)
 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (640, 480), 1, (640, 480))
 
-np.savez('cam2calib.npz', mtx=mtx, dist=dist, newcameramtx=newcameramtx, roi=roi)
+np.savez('cam' + str(cam_id + 1) + 'calib.npz', mtx=mtx, dist=dist, newcameramtx=newcameramtx, roi=roi)
 
 cv2.destroyAllWindows()
