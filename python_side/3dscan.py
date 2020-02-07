@@ -117,7 +117,7 @@ while True:
     if msg2 is None:
         msg2 = np.array([[[0,0,0]],[[0,0,0]]])
 
-    cv2.imshow('img', np.concatenate((img1, img2), axis=1))
+    cv2.imshow('img', np.concatenate((img1, img2), axis=0))
 
     msg = np.array([msg1, msg2]).ravel()
 

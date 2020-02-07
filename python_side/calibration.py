@@ -13,6 +13,7 @@ imgpoints = [] # 2d points in image plane.
 cam = cv2.VideoCapture(1)
 
 frame = None
+count = 0
 while True:
     ret, frame = cam.read()
     if not ret:
@@ -24,9 +25,15 @@ while True:
     ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
     # If found, add object points, image points (after refining them)
     if ret:
-        objpoints.append(objp)
         corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        imgpoints.append(corners)
+
+        f = cv2.waitKey(500)
+        if f == ord('f'):
+            objpoints.append(objp)
+            imgpoints.append(corners)
+            count += 1
+            print("Frame %d saved" % count)
+
         # Draw and display the corners
         cv2.drawChessboardCorners(frame, (9, 6), corners2, ret)
         cv2.imshow('img', frame)
