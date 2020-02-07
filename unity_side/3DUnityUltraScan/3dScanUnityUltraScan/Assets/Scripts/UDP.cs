@@ -10,15 +10,24 @@ using System.Threading;
 using UnityEngine;
 using UnityEngine.UI;
 
+public struct Vector3D
+{
+    public double v1;
+    public double v2;
+    public double v3;
+}
+
+public struct Matrix3x3D
+{
+    public Vector3D r1;
+    public Vector3D r2;
+    public Vector3D r3;
+}
+
 struct CamBufferData
 {
-    public double rx;
-    public double ry;
-    public double rz;
-
-    public double tx;
-    public double ty;
-    public double tz;
+    public Matrix3x3D rmat;
+    public Vector3D tvec;
 }
 
 struct Data
@@ -102,11 +111,85 @@ public class UDP : MonoBehaviour
         return q;
     }
 
-    public static Quaternion VectorToQuaternion(Vector3 m)
+    public static Quaternion VectorToQuaternion2(Vector3 m)
     {
-        float theta = (float)(Math.Sqrt(m.x*m.x + m.y*m.y + m.z*m.z)*180/Math.PI);
-        Vector3 axis = new Vector3 (m.x, m.y, m.z);
-        return Quaternion.AngleAxis (theta, axis);
+        var theta = m.magnitude;
+
+        var itheta = theta == 0.0f ? 1f/theta : 0f;
+
+        m *= itheta;
+
+        var rrt = new Matrix4x4
+        (
+            new Vector4(0, -m.z, m.y, 0),
+            new Vector4(m.z, 0, -m.x, 0),
+            new Vector4(-m.y, m.x, 0, 0),
+            new Vector4(0,0,0,1)
+        );
+
+        rrt = Matrix4x4.Transpose(rrt);
+
+        var r_x = new Matrix4x4(
+            new Vector4(m.x*m.x, m.x*m.y, m.x*m.z, 0),
+            new Vector4(m.x*m.y, m.y*m.y, m.y*m.z, 0),
+            new Vector4(m.x*m.z, m.y*m.z, m.z*m.z, 0),
+            new Vector4(0,0,0,1)
+        );
+
+        r_x = Matrix4x4.Transpose(r_x);
+
+        var c = Mathf.Cos(theta);
+        var s = Mathf.Sin(theta);
+        var c1 = 1 - c;
+
+        //var R = ;
+        
+        return new Quaternion();
+    }
+
+    public static Quaternion MatrixToRotation(Matrix3x3D m)
+    {
+        //var mat1 = new Matrix4x4
+        //(
+        //    new Vector4(0, -m.z, m.y, 0),
+        //    new Vector4(m.z, 0, -m.x, 0),
+        //    new Vector4(-m.y, m.x, 0, 0),
+        //    new Vector4(0,0,0,1)
+        //);
+
+        //mat1 = Matrix4x4.Transpose(mat1);
+
+        //var mat2 = new Matrix4x4(
+        //    new Vector4(m.x*m.x, m.x*m.y, m.x*m.z, 0),
+        //    new Vector4(m.x*m.y, m.y*m.y, m.y*m.z, 0),
+        //    new Vector4(m.x*m.z, m.y*m.z, m.z*m.z, 0),
+        //    new Vector4(0,0,0,1)
+        //);
+
+        //mat2 = Matrix4x4.Transpose(mat2);
+
+        //var theta = m.magnitude;
+
+        //var c = Mathf.Cos(theta);
+        //var s = Mathf.Sin(theta);
+
+        var mat = new Matrix4x4(
+            new Vector4((float)m.r1.v1, (float)m.r1.v2, (float)m.r1.v3, 0), 
+            new Vector4((float)m.r2.v1, (float)m.r2.v2, (float)m.r2.v3, 0), 
+            new Vector4((float)m.r3.v1, (float)m.r3.v2, (float)m.r3.v3, 0),
+            new Vector4(0, 0, 0, 1)
+        );
+
+        var basisTransform = new Matrix4x4(
+            new Vector4(-1, 0, 0, 0), 
+            new Vector4(0, -1, 0, 0), 
+            new Vector4(0, 0, 1, 0), 
+            new Vector4(0, 0, 0, 1)
+        );
+
+        var res = basisTransform.inverse * mat * basisTransform;
+
+        return MatrixToRotation(res);
     }
 
     void Update()
@@ -135,9 +218,12 @@ public class UDP : MonoBehaviour
 
     private CamData parseCamBufferData(CamBufferData d)
     {
-        var pos = new Vector3(-(float) d.tx, (float) d.ty, (float) d.tz);
-        var rot = VectorToQuaternion(new Vector3((float)d.rx, (float)d.ry, (float)d.rz));
-        return new CamData { position = pos, rotation = rot };
+        var pos = new Vector3((float) -d.tvec.v1, (float) -d.tvec.v2, (float) d.tvec.v3);
+        //var rot = Quaternion.Inverse(VectorToQuaternion(new Vector3((float)d.rx, (float)d.ry, (float)d.rz)));
+
+        var rot = MatrixToRotation(d.rmat);
+
+        return new CamData { position = rot * pos, rotation = rot };
     }
 
     private void ThreadMethod()

@@ -11,7 +11,7 @@ public class DrawPlanePoint : MonoBehaviour
         {
             for (var j = 0; j < 6; j++)
             {
-                Instantiate(PointPrefab, new Vector3(-i, j, 0), Quaternion.identity);
+                Instantiate(PointPrefab, new Vector3(i, j, 0), Quaternion.identity);
             }
         }
 	}

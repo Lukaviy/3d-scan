@@ -16,6 +16,7 @@ from scipy.spatial.transform import Rotation as R
 import socket
 from pickle import dumps
 import glob
+import time
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 7325
@@ -47,6 +48,22 @@ def drawCircles(img, corners, imgpts):
 
 cam1 = cv2.VideoCapture(0)
 cam2 = cv2.VideoCapture(1)
+
+# cam1.set(3, 1280)
+# cam1.set(4, 960)
+
+time.sleep(2)
+
+cam1.set(15, -4.0)
+
+# cam2.set(3, 1280)
+# cam2.set(4, 960)
+
+time.sleep(2)
+
+cam2.set(15, -4.0)
+
+time.sleep(2)
 
 with np.load('cam1calib.npz') as X:
     mtx1, dist1, newcameramtx1, roi1 = [X[i] for i in ('mtx', 'dist', 'newcameramtx', 'roi')]
@@ -87,15 +104,14 @@ while True:
     msg1 = None
     msg2 = None
 
-
-
     if ret1:
         imgpts1, _ = cv2.projectPoints(axis, rvecs1, tvecs1, mtx1, dist1)
         drawCircles(dst1, corners2_1, imgpts1)
         img1 = drawAxes(dst1, corners2_1, imgpts1)
         cv2.line(img1, (310, 240), (330, 240), (0, 0, 255), 2)
         cv2.line(img1, (320, 230), (320, 250), (0, 0, 255), 2)
-        msg1 = np.array([np.transpose(rvecs1), np.transpose(tvecs1)])
+        mat1, _ = cv2.Rodrigues(rvecs1)
+        msg1 = np.append(np.array(mat1).ravel(), np.transpose(tvecs1))
 
     if ret2:
         imgpts2, _ = cv2.projectPoints(axis, rvecs2, tvecs2, mtx2, dist2)
@@ -103,7 +119,8 @@ while True:
         img2 = drawAxes(dst2, corners2_2, imgpts2)
         cv2.line(img2, (310, 240), (330, 240), (0, 0, 255), 2)
         cv2.line(img2, (320, 230), (320, 250), (0, 0, 255), 2)
-        msg2 = np.array([np.transpose(rvecs2), np.transpose(tvecs2)])
+        mat2, _ = cv2.Rodrigues(rvecs2)
+        msg2 = np.append(np.array(mat2).ravel(), np.transpose(tvecs2))
 
     if img1 is None:
         img1 = dst1
@@ -119,7 +136,7 @@ while True:
 
     cv2.imshow('img', np.concatenate((img1, img2), axis=0))
 
-    msg = np.array([msg1, msg2]).ravel()
+    msg = np.append(msg1, msg2)
 
     sock.sendto(np.array(msg, dtype=float).tostring(), (UDP_IP, UDP_PORT))
 
