@@ -55,6 +55,7 @@ cam2 = cv2.VideoCapture(1)
 time.sleep(2)
 
 cam1.set(15, -4.0)
+cam1.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
 # cam2.set(3, 1280)
 # cam2.set(4, 960)
@@ -62,6 +63,7 @@ cam1.set(15, -4.0)
 time.sleep(2)
 
 cam2.set(15, -4.0)
+cam2.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
 time.sleep(2)
 
@@ -70,6 +72,54 @@ with np.load('cam1calib.npz') as X:
 
 with np.load('cam2calib.npz') as X:
     mtx2, dist2, newcameramtx2, roi2 = [X[i] for i in ('mtx', 'dist', 'newcameramtx', 'roi')]
+
+def estimateCameraPose(frame, dist, camMatrix, newCamMtx):
+    undistorted = cv2.undistort(frame, camMatrix, dist, None, newCamMtx)
+    gray = cv2.cvtColor(undistorted, cv2.COLOR_BGR2GRAY)
+
+    ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
+
+    if ret:
+        corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        ret, rvec, tvec, inliers = cv2.solvePnPRansac(objp, corners2, newCamMtx, dist)
+
+    img = None
+    msg = None
+
+    if ret:
+        imgpts, _ = cv2.projectPoints(axis, rvec, tvec, newCamMtx, dist)
+        drawCircles(undistorted, corners2, imgpts)
+        img = drawAxes(undistorted, corners2, imgpts)
+        cv2.line(img, (310, 240), (330, 240), (0, 0, 255), 2)
+        cv2.line(img, (320, 230), (320, 250), (0, 0, 255), 2)
+        mat, _ = cv2.Rodrigues(rvec)
+        R = mat.transpose()
+        pos = -R * tvec
+        msg = np.append(np.array(mat).ravel(), np.transpose(tvec))
+
+    if img is None:
+        img = undistorted
+
+    if msg is None:
+        msg = np.array([0,0,0,0,0,0,0,0,0,0,0,0])
+
+    return msg, img
+
+def reprojectPoint(camMatrix, pointOnScreen):
+    return -np.dot(np.linalg.inv(camMatrix), np.array([[pointOnScreen[0]], [pointOnScreen[1]], [1]]))
+
+def findLightSpot(frame, dist, camMatrix, newCamMtx):
+    undistorted = cv2.undistort(frame, camMatrix, dist, None, newCamMtx)
+    gray = cv2.cvtColor(undistorted, cv2.COLOR_BGR2GRAY)
+
+    _, maxVal, _, maxLoc = cv2.minMaxLoc(gray)
+
+    cv2.line(undistorted, (maxLoc[0] - 10, maxLoc[1]), (maxLoc[0] + 10, maxLoc[1]), (0, 255, 0), 2)
+    cv2.line(undistorted, (maxLoc[0], maxLoc[1] - 10), (maxLoc[0], maxLoc[1] + 10), (0, 255, 0), 2)
+
+    pos = reprojectPoint(camMatrix, maxLoc)
+
+    return [pos[0],pos[1]], undistorted
 
 while True:
     ret, frame1 = cam1.read()
@@ -80,65 +130,49 @@ while True:
     if not ret:
         exit(1)
 
-    dst1 = cv2.undistort(frame1, mtx1, dist1, None, newcameramtx1)
-    gray1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
-
-    dst2 = cv2.undistort(frame2, mtx2, dist2, None, newcameramtx2)
-    gray2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
-
-    ret1, corners1 = cv2.findChessboardCorners(gray1, (9, 6), None)
-    ret2, corners2 = cv2.findChessboardCorners(gray2, (9, 6), None)
-    # If found, add object points, image points (after refining them)
-
-    if ret1:
-        corners2_1 = cv2.cornerSubPix(gray1, corners1, (11, 11), (-1, -1), criteria)
-        ret1, rvecs1, tvecs1, inliers1 = cv2.solvePnPRansac(objp, corners2_1, newcameramtx1, dist1)
-
-    if ret2:
-        corners2_2 = cv2.cornerSubPix(gray2, corners2, (11, 11), (-1, -1), criteria)
-        ret2, rvecs2, tvecs2, inliers2 = cv2.solvePnPRansac(objp, corners2_2, newcameramtx2, dist2)
-
-    img1 = None
-    img2 = None
-
-    msg1 = None
-    msg2 = None
-
-    if ret1:
-        imgpts1, _ = cv2.projectPoints(axis, rvecs1, tvecs1, mtx1, dist1)
-        drawCircles(dst1, corners2_1, imgpts1)
-        img1 = drawAxes(dst1, corners2_1, imgpts1)
-        cv2.line(img1, (310, 240), (330, 240), (0, 0, 255), 2)
-        cv2.line(img1, (320, 230), (320, 250), (0, 0, 255), 2)
-        mat1, _ = cv2.Rodrigues(rvecs1)
-        msg1 = np.append(np.array(mat1).ravel(), np.transpose(tvecs1))
-
-    if ret2:
-        imgpts2, _ = cv2.projectPoints(axis, rvecs2, tvecs2, mtx2, dist2)
-        drawCircles(dst2, corners2_2, imgpts2)
-        img2 = drawAxes(dst2, corners2_2, imgpts2)
-        cv2.line(img2, (310, 240), (330, 240), (0, 0, 255), 2)
-        cv2.line(img2, (320, 230), (320, 250), (0, 0, 255), 2)
-        mat2, _ = cv2.Rodrigues(rvecs2)
-        msg2 = np.append(np.array(mat2).ravel(), np.transpose(tvecs2))
-
-    if img1 is None:
-        img1 = dst1
-
-    if img2 is None:
-        img2 = dst2
-
-    if msg1 is None:
-        msg1 = np.array([[[0,0,0]],[[0,0,0]]])
-
-    if msg2 is None:
-        msg2 = np.array([[[0,0,0]],[[0,0,0]]])
+    msg1, img1 = estimateCameraPose(frame1, dist1, mtx1, newcameramtx1)
+    msg2, img2 = estimateCameraPose(frame2, dist2, mtx2, newcameramtx2)
 
     cv2.imshow('img', np.concatenate((img1, img2), axis=0))
 
-    msg = np.append(msg1, msg2)
+    vec1 = reprojectPoint(mtx1, [320, 240])
+    vec2 = reprojectPoint(mtx2, [320, 240])
+
+    msg = np.append(msg1, np.array([vec1[0],vec1[1]]).transpose())
+    msg = np.append(msg, msg2)
+    msg = np.append(msg, np.array([vec2[0],vec2[1]]).transpose())
 
     sock.sendto(np.array(msg, dtype=float).tostring(), (UDP_IP, UDP_PORT))
+
+    k = cv2.waitKey(1)
+
+    if k % 256 == 32:
+        # ESC pressed
+        print("Space hit, closing...")
+        break
+
+while True:
+    ret, frame1 = cam1.read()
+    if not ret:
+        exit(1)
+
+    ret, frame2 = cam2.read()
+    if not ret:
+        exit(1)
+
+    dir1, img1 = findLightSpot(frame1, dist1, mtx1, newcameramtx1)
+    dir2, img2 = findLightSpot(frame2, dist2, mtx2, newcameramtx2)
+
+    dummyMessage = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+    msg = np.array(dummyMessage)
+    msg = np.append(msg, dir1)
+    msg = np.append(msg, dummyMessage)
+    msg = np.append(msg, dir2)
+
+    sock.sendto(np.array(msg, dtype=float).tostring(), (UDP_IP, UDP_PORT))
+
+    cv2.imshow('img', np.concatenate((img1, img2), axis=0))
 
     k = cv2.waitKey(1)
 

@@ -17,6 +17,12 @@ public struct Vector3D
     public double v3;
 }
 
+public struct Vector2D
+{
+    public double x;
+    public double y;
+}
+
 public struct Matrix3x3D
 {
     public Vector3D r1;
@@ -28,6 +34,7 @@ struct CamBufferData
 {
     public Matrix3x3D rmat;
     public Vector3D tvec;
+    public Vector2D lightDotPos;
 }
 
 struct Data
@@ -40,6 +47,7 @@ public struct CamData
 {
     public Vector3 position;
     public Quaternion rotation;
+    public Vector2 lightDotPos;
 }
 
 public class UDP : MonoBehaviour
@@ -88,6 +96,8 @@ public class UDP : MonoBehaviour
 
         int size = Marshal.SizeOf(data);
         IntPtr ptr = Marshal.AllocHGlobal(size);
+        
+        //Debug.Log($"{arr.Length}, {size}");
 
         Marshal.Copy(arr, 0, ptr, size);
 
@@ -109,6 +119,16 @@ public class UDP : MonoBehaviour
         q.y *= Mathf.Sign(q.y * (m[0, 2] - m[2, 0]));
         q.z *= Mathf.Sign(q.z * (m[1, 0] - m[0, 1]));
         return q;
+    }
+
+    public static Matrix4x4 BufferMatrixToMatrix4X4(Matrix3x3D m)
+    {
+        return new Matrix4x4(
+            new Vector4((float)m.r1.v1, (float)m.r1.v2, (float)m.r1.v3, 0), 
+            new Vector4((float)m.r2.v1, (float)m.r2.v2, (float)m.r2.v3, 0), 
+            new Vector4((float)m.r3.v1, (float)m.r3.v2, (float)m.r3.v3, 0),
+            new Vector4(0, 0, 0, 1)
+        );
     }
 
     public static Quaternion VectorToQuaternion2(Vector3 m)
@@ -173,12 +193,7 @@ public class UDP : MonoBehaviour
         //var c = Mathf.Cos(theta);
         //var s = Mathf.Sin(theta);
 
-        var mat = new Matrix4x4(
-            new Vector4((float)m.r1.v1, (float)m.r1.v2, (float)m.r1.v3, 0), 
-            new Vector4((float)m.r2.v1, (float)m.r2.v2, (float)m.r2.v3, 0), 
-            new Vector4((float)m.r3.v1, (float)m.r3.v2, (float)m.r3.v3, 0),
-            new Vector4(0, 0, 0, 1)
-        );
+        var mat = BufferMatrixToMatrix4X4(m);
 
         var basisTransform = new Matrix4x4(
             new Vector4(-1, 0, 0, 0), 
@@ -223,7 +238,7 @@ public class UDP : MonoBehaviour
 
         var rot = MatrixToRotation(d.rmat);
 
-        return new CamData { position = rot * pos, rotation = rot };
+        return new CamData { position = rot * pos, rotation = rot, lightDotPos = new Vector2((float)d.lightDotPos.x, (float)d.lightDotPos.y) };
     }
 
     private void ThreadMethod()
@@ -242,12 +257,12 @@ public class UDP : MonoBehaviour
             *not being accessed from multiple threads at the same time*/
             lock (lockObject)
             {
+                //Debug.Log($"{ _camData[0].position.x }, { _camData[0].position.y }, { _camData[0].position.z }");
+
                 var d = fromBytes(receiveBytes);
 
                 _camData[0] = parseCamBufferData(d.cam1);
                 _camData[1] = parseCamBufferData(d.cam2);
-
-                Debug.Log($"{ _camData[0].position.x }, { _camData[0].position.y }, { _camData[0].position.z }");
 
                 dataProceeded = true;
             }
