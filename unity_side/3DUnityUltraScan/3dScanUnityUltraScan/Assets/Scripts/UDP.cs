@@ -47,7 +47,7 @@ public struct CamData
 {
     public Vector3 position;
     public Quaternion rotation;
-    public Vector2 lightDotPos;
+    public Vector2 lightDotDiretion;
 }
 
 public class UDP : MonoBehaviour
@@ -62,6 +62,11 @@ public class UDP : MonoBehaviour
 
     public Text IPAddressText;
     public Text ReadedMessagesText;
+
+    public int GetIndexOfLastMessage()
+    {
+        return readedMessages;
+    }
 
     private int readedMessages = 0;
 
@@ -238,7 +243,7 @@ public class UDP : MonoBehaviour
 
         var rot = MatrixToRotation(d.rmat);
 
-        return new CamData { position = rot * pos, rotation = rot, lightDotPos = new Vector2((float)d.lightDotPos.x, (float)d.lightDotPos.y) };
+        return new CamData { position = rot * pos, rotation = rot, lightDotDiretion = new Vector2((float)d.lightDotPos.x, (float)d.lightDotPos.y) };
     }
 
     private void ThreadMethod()

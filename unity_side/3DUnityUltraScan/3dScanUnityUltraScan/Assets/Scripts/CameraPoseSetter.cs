@@ -8,26 +8,29 @@ public class CameraPoseSetter : MonoBehaviour
     public int index;
     public Color color;
 
-    private Vector3 point;
+    private Vector3 dotDirection;
 	
 	// Update is called once per frame
 	void Update ()
     {
         var t = Udp.CamData[index];
 
-        if (t.position.x > 0)
+        if (t.position.x != 0)
         {
             transform.position = t.position;
             transform.rotation = t.rotation;
         }
 
-        point = t.lightDotPos;
-        point.z = 1;
+        dotDirection = t.lightDotDiretion;
+        dotDirection.z = 1;
     }
 
     void OnDrawGizmos()
     {
         Gizmos.color = Color.red;
-        Gizmos.DrawRay(transform.position, transform.TransformDirection(-point) * 50);
+        if (dotDirection.x != 0)
+        {
+           // Gizmos.DrawRay(transform.position, transform.TransformDirection(-dotDirection) * 50);
+        }
     }
 }

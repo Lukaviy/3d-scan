@@ -117,9 +117,14 @@ def findLightSpot(frame, dist, camMatrix, newCamMtx):
     cv2.line(undistorted, (maxLoc[0] - 10, maxLoc[1]), (maxLoc[0] + 10, maxLoc[1]), (0, 255, 0), 2)
     cv2.line(undistorted, (maxLoc[0], maxLoc[1] - 10), (maxLoc[0], maxLoc[1] + 10), (0, 255, 0), 2)
 
+    cv2.putText(undistorted, str(maxVal), (10,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255))
+
     pos = reprojectPoint(camMatrix, maxLoc)
 
-    return [pos[0],pos[1]], undistorted
+    if maxVal > 50:
+        return [pos[0],pos[1]], undistorted
+    else:
+        return [0,0], undistorted
 
 while True:
     ret, frame1 = cam1.read()
