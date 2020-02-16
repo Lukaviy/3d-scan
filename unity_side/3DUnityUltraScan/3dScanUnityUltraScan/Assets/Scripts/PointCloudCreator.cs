@@ -42,7 +42,7 @@ public class PointCloudCreator : MonoBehaviour
         var camData1 = Udp.CamData[0];
         var camData2 = Udp.CamData[1];
 
-        if (camData1.position.x > 0 && camData2.position.y > 0)
+        if (camData1.position.x != 0 && camData2.position.y != 0)
         {
             cam1Pos = camData1.position;
             cam2Pos = camData2.position;
@@ -75,7 +75,7 @@ public class PointCloudCreator : MonoBehaviour
         Gizmos.color = Color.green;
         foreach (var point in pointCloud)
         {
-            Gizmos.DrawSphere(point, 0.1f);
+            Gizmos.DrawSphere(point, 0.05f);
         }
 
         Gizmos.color = Color.yellow;

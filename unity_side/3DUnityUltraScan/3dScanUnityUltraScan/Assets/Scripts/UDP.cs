@@ -201,8 +201,8 @@ public class UDP : MonoBehaviour
         var mat = BufferMatrixToMatrix4X4(m);
 
         var basisTransform = new Matrix4x4(
-            new Vector4(-1, 0, 0, 0), 
-            new Vector4(0, -1, 0, 0), 
+            new Vector4(1, 0, 0, 0), 
+            new Vector4(0, 1, 0, 0), 
             new Vector4(0, 0, 1, 0), 
             new Vector4(0, 0, 0, 1)
         );
@@ -238,12 +238,12 @@ public class UDP : MonoBehaviour
 
     private CamData parseCamBufferData(CamBufferData d)
     {
-        var pos = new Vector3((float) -d.tvec.v1, (float) -d.tvec.v2, (float) d.tvec.v3);
+        var pos = new Vector3((float) d.tvec.v1, (float) d.tvec.v2, (float) d.tvec.v3);
         //var rot = Quaternion.Inverse(VectorToQuaternion(new Vector3((float)d.rx, (float)d.ry, (float)d.rz)));
 
         var rot = MatrixToRotation(d.rmat);
 
-        return new CamData { position = rot * pos, rotation = rot, lightDotDiretion = new Vector2((float)d.lightDotPos.x, (float)d.lightDotPos.y) };
+        return new CamData { position = rot * pos, rotation = rot, lightDotDiretion = new Vector2(-(float)d.lightDotPos.x, -(float)d.lightDotPos.y) };
     }
 
     private void ThreadMethod()
