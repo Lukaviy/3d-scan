@@ -20,6 +20,7 @@ import time
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 7325
+resolution = (1280, 960)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -46,31 +47,25 @@ def drawCircles(img, corners, imgpts):
         img = cv2.circle(img, tuple(corner.ravel()), 5, (0, 255, 0), 2)
     return img
 
-cam1 = cv2.VideoCapture(0)
-cam2 = cv2.VideoCapture(1)
+cam1 = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+cam2 = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
-# cam1.set(3, 1280)
-# cam1.set(4, 960)
+cam1.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
+cam1.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
 
-time.sleep(2)
+# cam1.set(cv2.CAP_PROP_APERTURE, -4.0)
+# cam1.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
-cam1.set(15, -4.0)
-cam1.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+cam2.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
+cam2.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
 
-# cam2.set(3, 1280)
-# cam2.set(4, 960)
+# cam2.set(cv2.CAP_PROP_APERTURE, -4.0)
+# cam2.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 
-time.sleep(2)
-
-cam2.set(15, -4.0)
-cam2.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-
-time.sleep(2)
-
-with np.load('cam1calib.npz') as X:
+with np.load('cam1calib' + str(resolution[0]) + 'x' + str(resolution[1]) + '.npz') as X:
     mtx1, dist1, newcameramtx1, roi1 = [X[i] for i in ('mtx', 'dist', 'newcameramtx', 'roi')]
 
-with np.load('cam2calib.npz') as X:
+with np.load('cam2calib' + str(resolution[0]) + 'x' + str(resolution[1]) + '.npz') as X:
     mtx2, dist2, newcameramtx2, roi2 = [X[i] for i in ('mtx', 'dist', 'newcameramtx', 'roi')]
 
 def estimateCameraPose(frame, dist, camMatrix, newCamMtx):
@@ -90,8 +85,8 @@ def estimateCameraPose(frame, dist, camMatrix, newCamMtx):
         imgpts, _ = cv2.projectPoints(axis, rvec, tvec, newCamMtx, dist)
         drawCircles(undistorted, corners2, imgpts)
         img = drawAxes(undistorted, corners2, imgpts)
-        cv2.line(img, (310, 240), (330, 240), (0, 0, 255), 2)
-        cv2.line(img, (320, 230), (320, 250), (0, 0, 255), 2)
+        cv2.line(img, (int(resolution[0] / 2 - 10), int(resolution[1] / 2)), (int(resolution[0] / 2 + 10), int(resolution[1] / 2)), (0, 0, 255), 2)
+        cv2.line(img, (int(resolution[0] / 2), int(resolution[1] / 2 - 10)), (int(resolution[0] / 2), int(resolution[1] / 2 + 10)), (0, 0, 255), 2)
         mat, _ = cv2.Rodrigues(rvec)
         R = mat.transpose()
         pos = -R * tvec
@@ -138,10 +133,10 @@ while True:
     msg1, img1 = estimateCameraPose(frame1, dist1, mtx1, newcameramtx1)
     msg2, img2 = estimateCameraPose(frame2, dist2, mtx2, newcameramtx2)
 
-    cv2.imshow('img', np.concatenate((img1, img2), axis=0))
+    cv2.imshow('img', np.concatenate((cv2.resize(img1, (640, 480)), cv2.resize(img2, (640, 480))), axis=0))
 
-    vec1 = reprojectPoint(mtx1, [320, 240])
-    vec2 = reprojectPoint(mtx2, [320, 240])
+    vec1 = reprojectPoint(mtx1, [resolution[0] / 2, resolution[1] / 2])
+    vec2 = reprojectPoint(mtx2, [resolution[0] / 2, resolution[1] / 2])
 
     msg = np.append(msg1, np.array([vec1[0],vec1[1]]).transpose())
     msg = np.append(msg, msg2)
@@ -177,7 +172,7 @@ while True:
 
     sock.sendto(np.array(msg, dtype=float).tostring(), (UDP_IP, UDP_PORT))
 
-    cv2.imshow('img', np.concatenate((img1, img2), axis=0))
+    cv2.imshow('img', np.concatenate((cv2.resize(img1, (640, 480)), cv2.resize(img2, (640, 480))), axis=0))
 
     k = cv2.waitKey(1)
 

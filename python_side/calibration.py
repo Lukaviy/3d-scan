@@ -12,7 +12,14 @@ imgpoints = [] # 2d points in image plane.
 
 cam_id = 1
 
-cam = cv2.VideoCapture(cam_id)
+resolution = (1280, 960)
+
+cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+cam.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
+cam.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
+
+# cam.set(cv2.CAP_PROP_EXPOSURE, -8.0)
 
 frame = None
 count = 0
@@ -46,9 +53,9 @@ while True:
         print("Space hit, closing...")
         break
 
-ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (640, 480), None, None)
-newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (640, 480), 1, (640, 480))
+ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, resolution, None, None)
+newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, resolution, 1, resolution)
 
-np.savez('cam' + str(cam_id + 1) + 'calib.npz', mtx=mtx, dist=dist, newcameramtx=newcameramtx, roi=roi)
+np.savez('cam' + str(cam_id + 1) + 'calib' + str(resolution[0]) + 'x' + str(resolution[1]) + '.npz', mtx=mtx, dist=dist, newcameramtx=newcameramtx, roi=roi)
 
 cv2.destroyAllWindows()
